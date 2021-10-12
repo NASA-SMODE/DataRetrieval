@@ -25,13 +25,14 @@ def main():
         lat, lon = np.array([]), np.array([])
 
         # scitime = timedelta from 000Z 1/1/1970
-        start =  np.datetime64('1970-01-01') 
+        start =  np.datetime64('1970-01-01') - np.timedelta64(1,'D')
         time = []
 
         for path in sorted(datapath_nooptics):
             
             glider_data = xr.open_dataset(path)
         
+            # Average coordinates
             lat = np.hstack([lat, glider_data.latitude.mean().values])
             lon = np.hstack([lon, glider_data.longitude.mean().values])
             time.append(glider_data.scitime.mean().values + start)
