@@ -1,0 +1,41 @@
+# 2021/10/15 Ben Greenwood
+# Send latest section of ADCP NetCDF from Oceanus to public SMODE ftp
+
+import xarray as xr
+import datetime
+import ftplib
+
+# ftp info
+FTP_ADDRESS  = 'ftp.whoi.edu'
+FTP_SUBDIR   = 'pub/users/smode/Oceanus'
+FTP_USER     = 'anonymous'
+FTP_PW       = 'anonymous'
+
+# shipboard info
+USER_home    = '/home/bgreenwood/Documents'          # logfile and temporary ADCP file written here 
+ADCP_path    = '/home/bgreenwood/Documents/wh300.nc' # path to ADCP file
+duration_hrs = 6 # number of hours of ADCP data to send
+
+# create temporary oceanus_adcp_mmddHH.nc file including most recent xx hours of data
+#now  = datetime.datetime.utcnow()
+now = datetime.datetime.utcnow()
+t0   = now - datetime.timedelta(hours = duration_hrs)
+file = 'oceanus_adcp_%s.nc' % now.strftime('%m%d%H')
+d = xr.open_dataset(ADCP_path,drop_variables=['amp','pg','pflag','num_pings','tr_temp'])
+d.sel( time=slice(t0,now) ).to_netcdf(USER_home+'/'+file)
+
+# upload oceanus_adcp_mmddHH.nc file to S-MODE public ftp
+ftp = ftplib.FTP(FTP_ADDRESS)
+ftp.login(user=FTP_USER,passwd=FTP_PW)
+ftp.set_pasv(True)
+ftp.cwd(FTP_SUBDIR)
+status = '[OK]'
+try:
+  ftp.storbinary('STOR ' + file,open(USER_home+'/'+file,'rb'))
+except:
+  print('Unable to upload')
+  status = '[FAIL]'
+ftp.close()
+
+# append upload info to log
+open('%s/oceanus_adcp.log' % USER_home,'a').write('%s upload %s %s\n' % (now,file,status))
