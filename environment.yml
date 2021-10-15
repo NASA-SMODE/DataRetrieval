@@ -1,4 +1,4 @@
-name: smode_retrival
+name: smode_retrieval
 channels:
   - defaults
   - conda-forge
