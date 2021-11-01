@@ -1,0 +1,62 @@
+#2021/11/01 Ben Greenwood - Log into saildrone ftp (using SSL) and download daily 1_min adcp and non-accoustic files
+#                           this file is used to automatically download 1-min data to smode.whoi.edu:8080/thredds
+
+import ftplib
+import ssl
+import os
+import re
+import datetime
+
+# Path definitions and credentials; files will be placed in THREDDS directory, logfile writes to BASE directory
+server="ftp.saildrone.com"
+user='xxxxxxxx'
+pw='xxxxxxxxxx'
+BASE='/Users/bgreenwood/SMODE/WHOI_ftp'
+log = BASE + "/sd.log"
+THREDDS='/Volumes/raid1/thredds/public/SMODE/insitu/saildrone'
+
+def connect():
+  ftp = ftplib.FTP_TLS()
+  ftp.ssl_version = ssl.PROTOCOL_SSLv23
+  #ftp.debugging = 2
+  ftp.connect(server)
+  ftp.login(user=user,passwd=pw)
+  ftp.set_pasv(True)
+  ftp.prot_p()
+  return ftp
+
+ftp = connect()
+
+logfile = open(log,"a")
+logfile.write("%s Connect to %s\n" % (datetime.datetime.utcnow().strftime('%Y/%m/%d %H:%M:%S'), server))
+
+# iterate over directories
+for d in ['daily_files','adcp']:
+  for sd in ['1062','1072','1073','1074','1075']:
+    print('Check saildrone %s' % sd)
+    ftp.cwd('/%s/%s' % (d,sd))
+
+    # iterate over files in ftp saildrone subdirectory
+    for f in ftp.nlst():
+      # define output path; create sub-directories as necessary
+      outdir = THREDDS + '/' +'one_minute_daily' + '/' + sd
+      if not os.path.isdir(outdir):
+        os.makedirs(outdir)
+      outfile = f.split("/")[-1]
+
+      # if file already downloaded, skip
+      if os.path.exists(outdir + '/' + outfile):
+        print(' - %s already downloaded; skip' % outfile)
+        continue
+
+      # Download file
+      print(' - %s download' % outfile)
+      logfile.write("%s  -- Download %s to %s\n" % (datetime.datetime.utcnow().strftime('%Y/%m/%d %H:%M:%S'),outfile,outdir))
+      fin = open(outdir + '/' + outfile,'wb')
+      ftp.retrbinary("RETR %s" % f, fin.write)
+      fin.close()
+
+ftp.quit()
+
+logfile.write("%s Done\n" % (datetime.datetime.utcnow().strftime('%Y/%m/%d %H:%M:%S')))
+logfile.close()
